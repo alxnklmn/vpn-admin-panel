@@ -1,0 +1,20 @@
+version: "3.9"
+
+services:
+  vpn-admin:
+    build: .
+    container_name: vpn-admin-server
+    restart: always
+    ports:
+      - "8081:8081"
+    environment:
+      - DATABASE_URL=postgres://postgres:postgres@remnawave-telegram-shop-db:5432/postgres?sslmode=disable
+      - TELEGRAM_TOKEN=${TELEGRAM_TOKEN}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - remnawave-network
+
+networks:
+  remnawave-network:
+    external: true

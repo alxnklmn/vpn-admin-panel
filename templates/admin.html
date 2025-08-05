@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VPN Shop Admin Panel</title>
+    <link rel="stylesheet" href="/static/css/admin.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🔧 VPN Shop Admin Panel</h1>
+            <p>Управление ботом для продажи VPN</p>
+        </header>
+
+        <div class="tabs">
+            <button class="tab-btn active" onclick="showTab('broadcast')">📢 Массовая рассылка</button>
+            <button class="tab-btn" onclick="showTab('logs')">📋 Логи контейнера</button>
+        </div>
+
+        <div id="broadcast-tab" class="tab-content active">
+            <div class="card">
+                <h2>📢 Массовая рассылка</h2>
+                <p>Отправьте сообщение всем пользователям бота</p>
+                
+                <form id="broadcast-form">
+                    <div class="form-group">
+                        <label for="message">Сообщение:</label>
+                        <textarea id="message" name="message" rows="6" placeholder="Введите сообщение для рассылки... Поддерживается HTML разметка" required></textarea>
+                    </div>
+                    
+                    <div class="form-group">
+                        <button type="submit" class="btn btn-primary">🚀 Отправить рассылку</button>
+                        <button type="button" class="btn btn-secondary" onclick="clearForm()">🗑️ Очистить</button>
+                    </div>
+                </form>
+
+                <div id="broadcast-result" class="result-box" style="display: none;">
+                    <h3>Результат рассылки:</h3>
+                    <div id="broadcast-status"></div>
+                </div>
+            </div>
+        </div>
+
+        <div id="logs-tab" class="tab-content">
+            <div class="card">
+                <h2>📋 Логи контейнера</h2>
+                <p>Просмотр логов бота в реальном времени</p>
+                
+                <div class="form-group">
+                    <label for="log-lines">Количество строк:</label>
+                    <select id="log-lines">
+                        <option value="50">50 строк</option>
+                        <option value="100" selected>100 строк</option>
+                        <option value="200">200 строк</option>
+                        <option value="500">500 строк</option>
+                    </select>
+                    <button onclick="loadLogs()" class="btn btn-primary">🔄 Обновить логи</button>
+                    <button onclick="autoRefresh()" class="btn btn-secondary" id="auto-refresh-btn">⏱️ Автообновление</button>
+                </div>
+
+                <div class="logs-container">
+                    <pre id="logs-content">Загрузка логов...</pre>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/js/admin.js"></script>
+</body>
+</html>
