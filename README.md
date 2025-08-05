@@ -18,7 +18,7 @@ docker compose up -d --build
 ```bash
 # Просмотр логов для получения логина и пароля
 docker logs vpn-admin-server
-
+```
 
 ### Доступ к админке
 
