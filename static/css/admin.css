@@ -11,5 +11,18 @@ body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background: #f5
 .tab-content { display: none; }
 .tab-content.active { display: block; }
 .tabs { margin-bottom: 20px; }
-.tab-btn { padding: 10px 20px; border: none; background: #e9ecef; cursor: pointer; margin-right: 5px; }
+.tab-btn { padding: 10px 20px; border: none; background: #e9ecef; cursor: pointer; margin-right: 5px; border-radius: 4px; }
 .tab-btn.active { background: #007bff; color: white; }
+.tab-btn:hover { background: #dee2e6; }
+.tab-btn.active:hover { background: #0056b3; }
+
+/* Стили для редактора переводов */
+.translation-field { margin-bottom: 15px; padding: 15px; border: 1px solid #e9ecef; border-radius: 4px; background: #f8f9fa; }
+.translation-field label { font-weight: bold; color: #495057; margin-bottom: 5px; display: block; }
+.translation-field .field-key { color: #6c757d; font-family: monospace; font-size: 12px; margin-bottom: 8px; }
+.translation-field textarea { width: 100%; min-height: 60px; resize: vertical; padding: 8px; border: 1px solid #ced4da; border-radius: 4px; }
+.translation-field textarea:focus { outline: none; border-color: #007bff; box-shadow: 0 0 0 0.2rem rgba(0,123,255,.25); }
+
+.result-box { margin-top: 20px; padding: 15px; border-radius: 4px; }
+.result-success { background: #d4edda; border: 1px solid #c3e6cb; color: #155724; }
+.result-error { background: #f8d7da; border: 1px solid #f5c6cb; color: #721c24; }

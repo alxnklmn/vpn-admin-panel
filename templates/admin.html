@@ -16,6 +16,7 @@
         <div class="tabs">
             <button class="tab-btn active" onclick="showTab('broadcast')">📢 Массовая рассылка</button>
             <button class="tab-btn" onclick="showTab('logs')">📋 Логи контейнера</button>
+            <button class="tab-btn" onclick="showTab('translations')">✏️ Редактирование описаний</button>
         </div>
 
         <div id="broadcast-tab" class="tab-content active">
@@ -61,6 +62,38 @@
 
                 <div class="logs-container">
                     <pre id="logs-content">Загрузка логов...</pre>
+                </div>
+            </div>
+        </div>
+
+        <div id="translations-tab" class="tab-content">
+            <div class="card">
+                <h2>✏️ Редактирование описаний</h2>
+                <p>Редактирование текстов бота на разных языках</p>
+                
+                <div class="form-group">
+                    <label for="language-select">Выберите язык:</label>
+                    <select id="language-select" onchange="loadTranslationForLanguage()">
+                        <option value="">Выберите язык...</option>
+                    </select>
+                    <button onclick="loadTranslations()" class="btn btn-primary">🔄 Обновить переводы</button>
+                </div>
+
+                <div id="translation-editor" style="display: none;">
+                    <h3>Переводы для языка: <span id="current-language"></span></h3>
+                    
+                    <div id="translation-fields"></div>
+                    
+                    <div class="form-group">
+                        <button onclick="saveTranslations()" class="btn btn-primary">💾 Сохранить изменения</button>
+                        <button onclick="cancelEdit()" class="btn btn-secondary">❌ Отменить</button>
+                        <button onclick="restartBot()" class="btn btn-secondary">🔄 Перезапустить бота</button>
+                    </div>
+                </div>
+
+                <div id="translation-result" class="result-box" style="display: none;">
+                    <h3>Результат сохранения:</h3>
+                    <div id="translation-status"></div>
                 </div>
             </div>
         </div>

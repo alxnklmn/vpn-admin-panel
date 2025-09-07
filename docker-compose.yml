@@ -12,6 +12,7 @@ services:
       - TELEGRAM_TOKEN=${TELEGRAM_TOKEN}
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
+      - ../translations:/root/translations
     networks:
       - remnawave-network
 

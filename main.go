@@ -14,6 +14,7 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -44,6 +45,23 @@ type BroadcastResponse struct {
 type LogsResponse struct {
 	Success bool   `json:"success"`
 	Logs    string `json:"logs"`
+	Error   string `json:"error,omitempty"`
+}
+
+type TranslationResponse struct {
+	Success      bool                       `json:"success"`
+	Translations map[string]map[string]string `json:"translations,omitempty"`
+	Error        string                     `json:"error,omitempty"`
+}
+
+type UpdateTranslationRequest struct {
+	Language string            `json:"language"`
+	Data     map[string]string `json:"data"`
+}
+
+type RestartBotResponse struct {
+	Success bool   `json:"success"`
+	Message string `json:"message"`
 	Error   string `json:"error,omitempty"`
 }
 
@@ -91,6 +109,9 @@ func main() {
 	// API endpoints
 	mux.HandleFunc("/admin/broadcast", server.broadcastHandler)
 	mux.HandleFunc("/admin/logs", server.logsHandler)
+	mux.HandleFunc("/admin/translations", server.translationsHandler)
+	mux.HandleFunc("/admin/translations/update", server.updateTranslationHandler)
+	mux.HandleFunc("/admin/restart-bot", server.restartBotHandler)
 	
 	// Логин
 	mux.HandleFunc("/login", server.loginHandler)
@@ -361,6 +382,20 @@ func (s *Server) checkAuth(w http.ResponseWriter, r *http.Request) bool {
 		return true
 	}
 	
+	// Для AJAX запросов возвращаем JSON ошибку
+	if r.Header.Get("X-Requested-With") == "XMLHttpRequest" || 
+	   r.Header.Get("Content-Type") == "application/json" ||
+	   r.URL.Path == "/admin/translations" ||
+	   r.URL.Path == "/admin/translations/update" {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusUnauthorized)
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"success": false,
+			"error":   "Authentication required",
+		})
+		return false
+	}
+	
 	// Показываем форму входа
 	s.showLoginForm(w, "")
 	return false
@@ -421,4 +456,211 @@ func (s *Server) showLoginForm(w http.ResponseWriter, errorMsg string) {
 	}
 	
 	fmt.Fprint(w, html)
+}
+
+// translationsHandler - получение всех переводов
+func (s *Server) translationsHandler(w http.ResponseWriter, r *http.Request) {
+	log.Printf("🔄 Получен запрос на загрузку переводов от %s", r.RemoteAddr)
+	
+	// Проверяем аутентификацию
+	if !s.checkAuth(w, r) {
+		log.Printf("❌ Не пройдена аутентификация для %s", r.RemoteAddr)
+		return
+	}
+	
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	log.Printf("📁 Загружаем переводы из директории translations...")
+	translations, err := s.loadAllTranslations()
+	
+	response := TranslationResponse{
+		Success:      err == nil,
+		Translations: translations,
+	}
+
+	if err != nil {
+		log.Printf("❌ Ошибка загрузки переводов: %v", err)
+		response.Error = err.Error()
+	} else {
+		log.Printf("✅ Переводы успешно загружены: %d языков", len(translations))
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
+}
+
+// updateTranslationHandler - обновление переводов
+func (s *Server) updateTranslationHandler(w http.ResponseWriter, r *http.Request) {
+	// Проверяем аутентификацию
+	if !s.checkAuth(w, r) {
+		return
+	}
+	
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req UpdateTranslationRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid JSON", http.StatusBadRequest)
+		return
+	}
+
+	if req.Language == "" || req.Data == nil {
+		http.Error(w, "Language and data are required", http.StatusBadRequest)
+		return
+	}
+
+	err := s.saveTranslation(req.Language, req.Data)
+	
+	response := map[string]interface{}{
+		"success": err == nil,
+	}
+
+	if err != nil {
+		response["error"] = err.Error()
+	} else {
+		response["message"] = fmt.Sprintf("Переводы для языка %s успешно обновлены", req.Language)
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
+}
+
+// loadAllTranslations - загружает все файлы переводов
+func (s *Server) loadAllTranslations() (map[string]map[string]string, error) {
+	translationsDir := "translations"
+	translations := make(map[string]map[string]string)
+
+	files, err := os.ReadDir(translationsDir)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read translations directory: %w", err)
+	}
+
+	for _, file := range files {
+		if file.IsDir() || !strings.HasSuffix(file.Name(), ".json") {
+			continue
+		}
+
+		langCode := strings.TrimSuffix(file.Name(), ".json")
+		filePath := filepath.Join(translationsDir, file.Name())
+
+		content, err := os.ReadFile(filePath)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read translation file %s: %w", file.Name(), err)
+		}
+
+		var translation map[string]string
+		if err := json.Unmarshal(content, &translation); err != nil {
+			return nil, fmt.Errorf("failed to parse translation file %s: %w", file.Name(), err)
+		}
+
+		translations[langCode] = translation
+	}
+
+	return translations, nil
+}
+
+// saveTranslation - сохраняет переводы в файл
+func (s *Server) saveTranslation(language string, data map[string]string) error {
+	translationsDir := "translations"
+	filePath := filepath.Join(translationsDir, language+".json")
+
+	// Создаем директорию если она не существует
+	if err := os.MkdirAll(translationsDir, 0755); err != nil {
+		return fmt.Errorf("failed to create translations directory: %w", err)
+	}
+
+	// Форматируем JSON с отступами для читаемости
+	jsonData, err := json.MarshalIndent(data, "", "  ")
+	if err != nil {
+		return fmt.Errorf("failed to marshal translation data: %w", err)
+	}
+
+	// Записываем файл
+	if err := os.WriteFile(filePath, jsonData, 0644); err != nil {
+		return fmt.Errorf("failed to write translation file: %w", err)
+	}
+
+	return nil
+}
+
+// restartBotHandler - перезапуск основного бота
+func (s *Server) restartBotHandler(w http.ResponseWriter, r *http.Request) {
+	log.Printf("🔄 Получен запрос на перезапуск бота от %s", r.RemoteAddr)
+	
+	// Проверяем аутентификацию
+	if !s.checkAuth(w, r) {
+		log.Printf("❌ Не пройдена аутентификация для перезапуска бота %s", r.RemoteAddr)
+		return
+	}
+	
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	log.Printf("🤖 Начинаем перезапуск основного бота...")
+	err := s.restartMainBot()
+	
+	response := RestartBotResponse{
+		Success: err == nil,
+	}
+
+	if err != nil {
+		log.Printf("❌ Ошибка перезапуска бота: %v", err)
+		response.Error = err.Error()
+		response.Message = "Ошибка при перезапуске бота"
+	} else {
+		log.Printf("✅ Бот успешно перезапущен")
+		response.Message = "Бот успешно перезапущен и загрузил новые переводы"
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
+}
+
+// restartMainBot - безопасный перезапуск основного бота
+func (s *Server) restartMainBot() error {
+	botContainerName := "remnawave-telegram-shop-bot-1"
+	
+	// Сначала проверяем, что контейнер существует
+	checkCmd := exec.Command("docker", "inspect", botContainerName)
+	if err := checkCmd.Run(); err != nil {
+		return fmt.Errorf("контейнер %s не найден: %w", botContainerName, err)
+	}
+	
+	log.Printf("📋 Контейнер %s найден, выполняем graceful restart...", botContainerName)
+	
+	// Выполняем graceful restart контейнера
+	restartCmd := exec.Command("docker", "restart", botContainerName)
+	output, err := restartCmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("ошибка перезапуска контейнера %s: %w. Вывод: %s", 
+			botContainerName, err, string(output))
+	}
+	
+	log.Printf("🔄 Контейнер %s успешно перезапущен", botContainerName)
+	
+	// Ждем несколько секунд, чтобы контейнер успел запуститься
+	time.Sleep(3 * time.Second)
+	
+	// Проверяем статус контейнера
+	statusCmd := exec.Command("docker", "ps", "--filter", "name="+botContainerName, "--format", "{{.Status}}")
+	statusOutput, err := statusCmd.Output()
+	if err != nil {
+		return fmt.Errorf("не удалось проверить статус контейнера: %w", err)
+	}
+	
+	status := strings.TrimSpace(string(statusOutput))
+	if !strings.Contains(status, "Up") {
+		return fmt.Errorf("контейнер не запустился корректно. Статус: %s", status)
+	}
+	
+	log.Printf("✅ Контейнер %s запущен и работает. Статус: %s", botContainerName, status)
+	return nil
 } 
