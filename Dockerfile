@@ -9,7 +9,6 @@ WORKDIR /root/
 COPY --from=builder /app/main .
 COPY --from=builder /app/static ./static
 COPY --from=builder /app/templates ./templates
-# Создаем директорию для переводов (будет примонтирована из хоста)
 RUN mkdir -p /root/translations
 EXPOSE 8081
 CMD ["./main"]
